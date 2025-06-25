@@ -1,0 +1,57 @@
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: todoapp-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: TodoAppDb
+    volumes:
+      - mongodb_data:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    networks:
+      - todoapp-network
+
+  # ASP.NET Core API
+  api:
+    build:
+      context: ./TodoApp.API
+      dockerfile: Dockerfile
+    container_name: todoapp-api
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - MongoDbSettings__ConnectionString=mongodb://admin:password123@mongodb:27017/TodoAppDb?authSource=admin
+      - MongoDbSettings__DatabaseName=TodoAppDb
+      - MongoDbSettings__TodosCollectionName=Todos
+    depends_on:
+      - mongodb
+    networks:
+      - todoapp-network
+
+  # React Frontend
+  client:
+    build:
+      context: ./TodoApp.Client
+      dockerfile: Dockerfile
+    container_name: todoapp-client
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    networks:
+      - todoapp-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  todoapp-network:
+    driver: bridge
